@@ -27,11 +27,11 @@
 
 ### Breaking changes
 
-- **Encoding format change**: KeyPackage (kind:443) and Welcome (kind:444) events now support version-tagged dual-format encoding for the `content` field:
-  - **Version 1 (base64)**: Prefix `v1:` followed by base64-encoded content (preferred, ~33% smaller)
-  - **Legacy (hex)**: No prefix, hex-encoded content (backward compatibility only)
+- **Encoding format change**: KeyPackage (kind:443) and Welcome (kind:444) events now support tag-based dual-format encoding for the `content` field:
+  - **Base64**: `["encoding", "base64"]` tag present, content is base64-encoded (preferred, ~33% smaller)
+  - **Hex (default)**: No `encoding` tag or `["encoding", "hex"]`, content is hex-encoded (backward compatible)
 
-  The version tag eliminates ambiguity for strings that are valid in both hex and base64 but decode to different bytes. Implementations MUST support reading both formats. New implementations SHOULD use base64 encoding with the `v1:` prefix.
+  The tag-based approach eliminates ambiguity for strings like `deadbeef` that are valid in both hex and base64 but decode to different bytes. Implementations MUST support reading both formats. New implementations SHOULD use base64 encoding with the `["encoding", "base64"]` tag.
 
 ### Changed
 
