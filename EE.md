@@ -162,11 +162,12 @@ In most cases, it's assumed that clients implementing this NIP will manage the c
     "kind": 443,
     "created_at": <unix timestamp in seconds>,
     "pubkey": <main identity pubkey>,
-    "content": "",
+    "content": <serialized KeyPackageBundle>,
     "tags": [
         ["mls_protocol_version", "1.0"],
         ["ciphersuite", <MLS CipherSuite ID value e.g. "0x0001">],
         ["extensions", <An array of MLS Extension ID values e.g. "0xf2ee", "0x000a">],
+        ["encoding", "base64"],
         ["client", <client name>],
         ["relays", <array of relay urls>],
         ["-"]
@@ -175,7 +176,9 @@ In most cases, it's assumed that clients implementing this NIP will manage the c
 }
 ```
 
-- The `content` hex encoded serialized `KeyPackageBundle` from MLS.
+- The `content` field is the serialized `KeyPackageBundle` from MLS. New implementations MUST use base64 encoding. The encoding format is specified by the `encoding` tag:
+  - `["encoding", "base64"]` - Content is base64-encoded (~33% smaller, **required for new implementations**)
+  - `["encoding", "hex"]` or tag absent - Content is hex-encoded (**deprecated**, for backward compatibility only)
 - The `mls_protocol_version` tag is required and MUST be the version number of the MLS protocol version being used. For now, this is `1.0`.
 - The `ciphersuite` tag is the value of the MLS ciphersuite that this KeyPackage Event supports. [Read more about ciphersuites in MLS](https://www.rfc-editor.org/rfc/rfc9420.html#name-mls-cipher-suites).
 - The `extensions` tag is an array of MLS extension IDs that this KeyPackage Event supports. [Read more about MLS extensions](https://www.rfc-editor.org/rfc/rfc9420.html#name-extensions).
@@ -225,12 +228,15 @@ Clients creating the Welcome Event SHOULD wait until they have received acknowle
    "tags": [
       ["e", <ID of the KeyPackage Event used to add the user to the group>],
       ["relays", <array of relay urls>],
+      ["encoding", "base64"]
    ],
    "sig": <NOT SIGNED>
 }
 ```
 
-- The `content` field is required and is a serialized MLSMessage object containing the MLS `Welcome` object.
+- The `content` field is required and is a serialized MLSMessage object containing the MLS `Welcome` object. New implementations MUST use base64 encoding. The encoding format is specified by the `encoding` tag:
+  - `["encoding", "base64"]` - Content is base64-encoded (~33% smaller, **required for new implementations**)
+  - `["encoding", "hex"]` or tag absent - Content is hex-encoded (**deprecated**, for backward compatibility only)
 - The `e` tag is required and is the ID of the KeyPackage Event used to add the user to the group.
 - The `relays` tag is required and is a list of relays clients should query for Group Events.
 
