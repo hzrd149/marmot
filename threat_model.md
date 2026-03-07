@@ -160,13 +160,13 @@ Network observers include entities that can capture packets between clients and 
 **Threat**: Attackers monitoring network traffic can observe TLS-encrypted packets and Nostr event metadata.
 
 **Attack Scenarios**:
-- Observing event kinds (443, 444, 445, 10051) published to relays
+- Observing event kinds (30443, 444, 445, 10051) published to relays
 - Monitoring event sizes and timing patterns
 - Tracking `nostr_group_id` values in kind: 445 event `h` tags
 - Correlating activity patterns across multiple relays
 
 **Observable Information**:
-- **Key Package events (kind: 443)**: Public signing keys, MLS credentials containing Nostr public keys, supported ciphersuites, and capabilities. This data is intentionally public and unencrypted.
+- **Key Package events (kind: 30443)**: Public signing keys, MLS credentials containing Nostr public keys, supported ciphersuites, and capabilities. This data is intentionally public and unencrypted.
 - **Key Package list events (kind: 10051)**: Relay URLs where users publish KeyPackages. This data is intentionally public.
 - **Welcome events (kind: 444)**: Gift-wrapped using [NIP-59](https://github.com/nostr-protocol/nips/blob/master/59.md), appearing as kind: 1059 events. Observers cannot determine the payload is a Welcome message without the recipient's Nostr private key.
 - **Application Message events (kind: 445)**: Double-encrypted content (MLS symmetric encryption + ChaCha20-Poly1305, key derived from MLS exporter secret). Observers see encrypted content and ephemeral public keys but cannot decrypt without group secrets.
@@ -194,12 +194,12 @@ Network observers include entities that can capture packets between clients and 
 
 #### T.1.2 - Key Package Credential Mismatch
 
-- **Description**: Attackers attempt to publish KeyPackages with mismatched credentials (Nostr pubkey in MLS credential doesn't match kind: 443 event pubkey).
+- **Description**: Attackers attempt to publish KeyPackages with mismatched credentials (Nostr pubkey in MLS credential doesn't match kind: 30443 event pubkey).
 - **Prerequisites**: Attacker can publish events to relays.
 - **Impact**: Critical authentication bypass if clients don't validate credential matching. Attacker could impersonate other users in groups.
 - **Affected Components**: [MIP-00](00.md) (KeyPackage Events), MLS Credentials
 - **Countermeasures**:
-  - **CRITICAL**: Clients MUST validate that the Nostr public key in the MLS BasicCredential identity field matches the kind: 443 event's pubkey field (See [MIP-00](00.md) Identity Requirements)
+  - **CRITICAL**: Clients MUST validate that the Nostr public key in the MLS BasicCredential identity field matches the kind: 30443 event's pubkey field (See [MIP-00](00.md) Identity Requirements)
   - Cryptographic signatures prevent forgery on behalf of other users
   - Event ID tamper-proofing ([NIP-01](https://github.com/nostr-protocol/nips/blob/master/01.md)) prevents content modification after publishing
 - **Residual Risk**: None if validation is properly implemented. This is a preventable vulnerability.
@@ -616,15 +616,16 @@ Key packages enable asynchronous group invitations and have specific security co
   - Consider automatic rotation for high-security use cases
 - **Residual Risk**: Some exposure window exists even with regular rotation. Weekly rotation balances security and usability.
 
-#### T.7.3 - KeyPackage Deletion Failures
+#### T.7.3 - Stale KeyPackage Exposure
 
-- **Description**: KeyPackages might not be properly deleted from relays, leaving stale invitation vectors. Deletion timing differs for last resort vs. non-last-resort packages.
-- **Impact**: Old KeyPackages could be used if not properly deleted.
+- **Description**: Before the migration to addressable `kind:30443` events, stale KeyPackages left on relays after consumption posed a residual invitation vector. With addressable events, rotation is achieved by publishing a new `kind:30443` event under the same `d` tag, which relays automatically replace — eliminating the need for explicit NIP-09 deletion for the rotation use case.
+- **Impact**: Reduced compared to prior design. Rotation no longer depends on relay support for event deletion. The remaining exposure vector is a client that fails to publish a replacement after consuming a KeyPackage.
 - **Countermeasures**:
-  - Clients SHOULD delete non-last-resort KeyPackages after successful group join
-  - Last resort KeyPackages SHOULD be deleted after fresh packages are published, not immediately after use
-  - Do NOT delete if Welcome processing fails (to allow retry)
-  - Monitor relay deletion confirmations
+  - Clients SHOULD rotate (publish a fresh `kind:30443` under the same `d` tag) after a successful group join
+  - Last resort KeyPackages SHOULD be rotated after a fresh package is confirmed published, not immediately after use
+  - Do NOT rotate if Welcome processing fails (to allow retry)
+  - Clients MAY use NIP-09 event deletion to completely remove a decommissioned KeyPackage slot, but MUST NOT rely on deletion for rotation
+- **Residual Risk**: Clients that fail to rotate after consuming a KeyPackage may leave the slot vacant or stale, but this only affects future invitations, not already-joined groups.
 
 #### T.7.4 - Welcome Event Timing Race Conditions (State Fork Vulnerability)
 
@@ -1256,7 +1257,7 @@ These requirements are CRITICAL for security and MUST be implemented correctly. 
 
 #### 3.0.1 Credential Validation (MIP-00) - CRITICAL (Security Bypass)
 
-**Requirement**: Clients MUST validate that the Nostr public key in the MLS BasicCredential identity field exactly matches the kind: 443 KeyPackage event's pubkey field.
+**Requirement**: Clients MUST validate that the Nostr public key in the MLS BasicCredential identity field exactly matches the kind: 30443 KeyPackage event's pubkey field.
 
 - **Why Critical**: Prevents impersonation attacks where attackers publish KeyPackages with credentials belonging to other users
 - **Related Threat**: T.1.2 - Key Package Credential Mismatch
@@ -1631,7 +1632,7 @@ Comprehensive testing is essential to ensure security requirements are properly 
 **High-Priority Fuzzing**:
 - Extension deserialization (TLS format parsing)
 - MLS message processing (Commits, Proposals, Welcome objects)
-- Nostr event parsing (kind: 443, 444, 445, 10051)
+- Nostr event parsing (kind: 30443, 444, 445, 10051)
 - Media decryption ([MIP-04](04.md) format handling)
 - Key derivation (exporter secret contexts)
 
