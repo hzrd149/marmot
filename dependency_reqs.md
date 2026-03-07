@@ -138,7 +138,6 @@ In addition to general Nostr requirements, Marmot implementations **MUST**:
 
    - Support all Marmot-defined event kinds (see Marmot specification)
    - Properly handle ephemeral, replaceable, and addressable events
-   - Implement event deletion (NIP-09) where explicitly specified (optional for KeyPackage removal)
 
 2. **Tag Handling**
 
