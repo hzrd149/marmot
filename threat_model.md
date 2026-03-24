@@ -597,7 +597,7 @@ Key packages enable asynchronous group invitations and have specific security co
 - **Countermeasures**:
   - **CRITICAL**: Clients MUST rotate signing keys within one week after using last resort KeyPackages (See [MIP-00](00.md) Signing Key Rotation)
   - Best practice: Rotate signing keys within 24-48 hours of last resort KeyPackage use
-  - Last resort packages SHOULD NOT be deleted immediately (they're meant to be reused), but SHOULD be deleted after fresh packages are published
+  - Last resort packages SHOULD NOT be retired immediately (they are meant to be reused), but SHOULD be rotated by publishing a fresh `kind:30443` under the same `d` tag before the old one is decommissioned
   - Retain private keys for all groups to enable rotation
   - Monitor for unexpected or excessive KeyPackage usage
   - Publish fresh KeyPackages regularly to avoid last resort usage
@@ -618,11 +618,11 @@ Key packages enable asynchronous group invitations and have specific security co
 
 #### T.7.3 - Stale KeyPackage Exposure
 
-- **Description**: Before the migration to addressable `kind:30443` events, stale KeyPackages left on relays after consumption posed a residual invitation vector. With addressable events, rotation is achieved by publishing a new `kind:30443` event under the same `d` tag, which relays automatically replace — eliminating the need for explicit NIP-09 deletion for the rotation use case.
+- **Description**: Before the migration to addressable `kind:30443` events, stale KeyPackages left on relays after consumption posed a residual invitation vector. With addressable events, rotation is achieved by publishing a new `kind:30443` event under the same `d` tag. Relays that receive the newer event replace the prior version for that slot, eliminating the need for explicit NIP-09 deletion for the normal rotation path.
 - **Impact**: Reduced compared to prior design. Rotation no longer depends on relay support for event deletion. The remaining exposure vector is a client that fails to publish a replacement after consuming a KeyPackage.
 - **Countermeasures**:
   - Clients SHOULD rotate (publish a fresh `kind:30443` under the same `d` tag) after a successful group join
-  - Last resort KeyPackages SHOULD be rotated after a fresh package is confirmed published, not immediately after use
+  - Last resort KeyPackages SHOULD be rotated after a fresh package is confirmed published to the intended relays for that slot, not immediately after use
   - Do NOT rotate if Welcome processing fails (to allow retry)
   - Clients MAY use NIP-09 event deletion to completely remove a decommissioned KeyPackage slot, but MUST NOT rely on deletion for rotation
 - **Residual Risk**: Clients that fail to rotate after consuming a KeyPackage may leave the slot vacant or stale, but this only affects future invitations, not already-joined groups.
@@ -1337,7 +1337,7 @@ These requirements are CRITICAL for security and MUST be implemented correctly. 
 **Requirement**: Clients MUST securely delete private init_key material from local storage after successfully processing a Welcome message. Deletion MUST include memory zeroization.
 
 - **Why Critical**: Retained init_keys create forward secrecy vulnerabilities. Device compromise could enable decryption of captured Welcome messages and recovery of historical group secrets.
-- **Exception**: For last resort KeyPackages, retain the init_key only while the KeyPackage remains published on relays.
+- **Exception**: For last resort KeyPackages, retain the init_key until the replacement `kind:30443` for the same `d` tag has been published to the intended relays and either relay acceptance has been confirmed or a conservative grace window has elapsed.
 - **Related Threat**: T.7.6 - init_key Retention After Group Join
 - **Specification**: See [MIP-00](00.md) (Private Key Material Management), [MIP-02](02.md) (Processing Requirements)
 
@@ -1443,7 +1443,7 @@ Common mistakes that developers should avoid when implementing Marmot:
 
 **Consequences**: Forward secrecy vulnerability. If device is later compromised, attacker could decrypt captured Welcome messages and recover historical group secrets.
 
-**Solution**: Securely delete private init_key immediately after successful Welcome processing. Use memory zeroization. For last resort KeyPackages, delete init_key only when rotating to a new last resort package. See [MIP-00](00.md) Private Key Material Management.
+**Solution**: Securely delete private init_key immediately after successful Welcome processing. Use memory zeroization. For last resort KeyPackages, delete init_key only after the replacement `kind:30443` for the same `d` tag has propagated to the intended relays or a conservative grace window has elapsed. See [MIP-00](00.md) Private Key Material Management.
 
 #### 3.1.12 Missing Post-Join Self-Update
 

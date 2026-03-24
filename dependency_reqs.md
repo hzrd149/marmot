@@ -104,6 +104,7 @@ Any Nostr implementation used with Marmot **MUST**:
    - Implement [NIP-01](https://github.com/nostr-protocol/nips/blob/master/01.md) (Basic protocol flow)
    - Support event signing and verification per NIP-01
    - Properly validate event IDs and signatures
+   - Follow NIP-01 addressable-event replacement semantics for `kind:30443` KeyPackage events, keyed by the `(kind, pubkey, d)` tuple
    - Handle relay connections and subscriptions
 
 2. **Other Required NIPs**
@@ -137,7 +138,7 @@ In addition to general Nostr requirements, Marmot implementations **MUST**:
 1. **Event Kinds**
 
    - Support all Marmot-defined event kinds (see Marmot specification)
-   - Properly handle ephemeral, replaceable, and addressable events
+   - Properly handle ephemeral, replaceable, and addressable events, including the NIP-01 replacement rules for `kind:30443`
 
 2. **Tag Handling**
 
