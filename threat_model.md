@@ -619,13 +619,13 @@ Key packages enable asynchronous group invitations and have specific security co
 #### T.7.3 - Stale KeyPackage Exposure
 
 - **Description**: Before the migration to addressable `kind:30443` events, stale KeyPackages left on relays after consumption posed a residual invitation vector. With addressable events, rotation is achieved by publishing a new `kind:30443` event under the same `d` tag. Relays that receive the newer event replace the prior version for that slot, eliminating the need for explicit NIP-09 deletion for the normal rotation path.
-- **Impact**: Reduced compared to prior design. Rotation no longer depends on relay support for event deletion. The remaining exposure vector is a client that fails to publish a replacement after consuming a KeyPackage.
+- **Impact**: Reduced compared to prior design. Rotation no longer depends on relay support for event deletion, but stale slot state may still be served by relays that miss replacement publishes, receive them out of order, or later replay older valid events.
 - **Countermeasures**:
   - Clients SHOULD rotate (publish a fresh `kind:30443` under the same `d` tag) after a successful group join
   - Last resort KeyPackages SHOULD be rotated after a fresh package is confirmed published to the intended relays for that slot, not immediately after use
   - Do NOT rotate if Welcome processing fails (to allow retry)
   - Clients MAY use NIP-09 event deletion to completely remove a decommissioned KeyPackage slot, but MUST NOT rely on deletion for rotation
-- **Residual Risk**: Clients that fail to rotate after consuming a KeyPackage may leave the slot vacant or stale, but this only affects future invitations, not already-joined groups.
+- **Residual Risk**: Even when a client correctly publishes a replacement `kind:30443` event under the same `d` tag, relays that miss the replacement, receive it out of order, or later replay older valid events can continue serving stale KeyPackage slot state. Clients that fail to rotate after consumption make this worse. These failures affect future invitations, not already-joined groups.
 
 #### T.7.4 - Welcome Event Timing Race Conditions (State Fork Vulnerability)
 
@@ -1632,7 +1632,7 @@ Comprehensive testing is essential to ensure security requirements are properly 
 **High-Priority Fuzzing**:
 - Extension deserialization (TLS format parsing)
 - MLS message processing (Commits, Proposals, Welcome objects)
-- Nostr event parsing (kind: 30443, 444, 445, 10051)
+- Nostr event parsing (kind: 444, 445, 10051, 30443)
 - Media decryption ([MIP-04](04.md) format handling)
 - Key derivation (exporter secret contexts)
 
