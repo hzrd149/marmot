@@ -82,7 +82,7 @@ sequenceDiagram
     rect rgb(100, 100, 100)
         Note over C: Later: KeyPackage consumed<br/>for group join
         C->>C: Generate fresh KeyPackage<br/>same d tag identifier
-        C->>R1: Publish rotated KeyPackage (30443)<br/>relays replace old automatically
+        C->>R1: Publish rotated KeyPackage (30443)<br/>replaces old on relays that receive it
         C->>R2: Publish rotated KeyPackage (30443)
         C->>R3: Publish rotated KeyPackage (30443)
     end
@@ -92,7 +92,7 @@ sequenceDiagram
 1. Client generates MLS KeyPackage locally, assigns a random `d` tag identifier
 2. KeyPackage published to multiple relays (redundancy)
 3. Relay list published (helps others find KeyPackages)
-4. After use, a fresh KeyPackage is published under the same `d` tag — relays automatically replace the old version (no explicit deletion required)
+4. After use, a fresh KeyPackage is published under the same `d` tag — on relays that receive it, the new event replaces the old one for that `(kind, pubkey, d)` slot (no explicit deletion required). Replacement is relay-local: a relay that missed the newer publish, or that later receives a replay of an older valid event, may still serve a stale copy.
 
 **Security Notes:**
 
