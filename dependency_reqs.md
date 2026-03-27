@@ -104,16 +104,20 @@ Any Nostr implementation used with Marmot **MUST**:
    - Implement [NIP-01](https://github.com/nostr-protocol/nips/blob/master/01.md) (Basic protocol flow)
    - Support event signing and verification per NIP-01
    - Properly validate event IDs and signatures
+   - Follow NIP-01 addressable-event replacement semantics for `kind:30443` KeyPackage events, keyed by the `(kind, pubkey, d)` tuple
    - Handle relay connections and subscriptions
 
 2. **Other Required NIPs**
 
-   - **NIP-09**: Event deletion
    - **NIP-44**: Encrypted Payloads (versioned encryption; used by NIP-59 gift wrap for Welcome events — not used for kind: 445 group events, which use ChaCha20-Poly1305 directly)
    - **NIP-59**: Gift Wrap (sealed sender)
    - **NIP-65**: Inbox/Outbox relay model
 
-3. **Security Requirements**
+3. **Optional NIPs**
+
+   - **NIP-09**: Event deletion — MAY be used to completely remove a `kind:30443` KeyPackage (e.g., decommissioning a device). Not required for KeyPackage rotation, which is handled by publishing a new addressable event under the same `d` tag.
+
+4. **Security Requirements**
 
    - Validate all event signatures before processing
    - Verify event IDs match the calculated hash
@@ -121,7 +125,7 @@ Any Nostr implementation used with Marmot **MUST**:
    - Protect private keys in memory and storage
    - Use secure key generation (secp256k1)
 
-4. **Data Handling**
+5. **Data Handling**
    - Properly encode/decode binary data (e.g., base64)
    - Handle UTF-8 encoding correctly
    - Validate event timestamps and prevent time-based attacks
@@ -134,8 +138,7 @@ In addition to general Nostr requirements, Marmot implementations **MUST**:
 1. **Event Kinds**
 
    - Support all Marmot-defined event kinds (see Marmot specification)
-   - Properly handle ephemeral vs. replaceable events
-   - Implement event deletion where specified
+   - Properly handle ephemeral, replaceable, and addressable events, including the NIP-01 replacement rules for `kind:30443`
 
 2. **Tag Handling**
 

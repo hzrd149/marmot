@@ -64,11 +64,11 @@ sequenceDiagram
 
     Note over C: Generate MLS Signing Key<br/>Create Credential<br/>Build KeyPackage
 
-    C->>C: Create kind: 443 event<br/>Sign with Nostr key
+    C->>C: Create kind: 30443 event<br/>with random d tag<br/>Sign with Nostr key
 
-    C->>R1: Publish KeyPackage (443)
-    C->>R2: Publish KeyPackage (443)
-    C->>R3: Publish KeyPackage (443)
+    C->>R1: Publish KeyPackage (30443)
+    C->>R2: Publish KeyPackage (30443)
+    C->>R3: Publish KeyPackage (30443)
 
 
     C->>C: Create kind: 10051 event<br/>List relay URLs
@@ -81,18 +81,18 @@ sequenceDiagram
 
     rect rgb(100, 100, 100)
         Note over C: Later: KeyPackage consumed<br/>for group join
-        C->>R1: DELETE KeyPackage (kind: 5)
-        C->>R2: DELETE KeyPackage (kind: 5)
-        C->>R3: DELETE KeyPackage (kind: 5)
+        C->>C: Generate fresh KeyPackage<br/>same d tag identifier
+        C->>R1: Publish rotated KeyPackage (30443)<br/>replaces old on relays that receive it
+        C->>R2: Publish rotated KeyPackage (30443)
+        C->>R3: Publish rotated KeyPackage (30443)
     end
 ```
 
 **Data Flow:**
-
-1. Client generates MLS KeyPackage locally
+1. Client generates MLS KeyPackage locally, assigns a random `d` tag identifier
 2. KeyPackage published to multiple relays (redundancy)
 3. Relay list published (helps others find KeyPackages)
-4. After use, KeyPackage deleted (unless last_resort)
+4. After use, a fresh KeyPackage is published under the same `d` tag — on relays that receive it, the new event replaces the old one for that `(kind, pubkey, d)` slot (no explicit deletion required). Replacement is relay-local: a relay that missed the newer publish, or that later receives a replay of an older valid event, may still serve a stale copy.
 
 **Security Notes:**
 
@@ -163,7 +163,7 @@ sequenceDiagram
     Note over M: Published KeyPackage<br/>available on relays
 
     A->>R: Query KeyPackages<br/>for target member
-    R-->>A: KeyPackage event (443)
+    R-->>A: KeyPackage event (30443)
 
     A->>A: Verify credential matches<br/>Nostr pubkey in event
 
@@ -194,7 +194,7 @@ sequenceDiagram
 
     MLS->>M: Group state at epoch N+1<br/>Ratchet tree, secrets
 
-    M->>R: DELETE consumed<br/>KeyPackage
+    M->>R: Publish rotated KeyPackage (30443)<br/>(same d tag, replaces consumed one)
 
     R->>M: Subscribe to Group Events<br/>h tag = nostr_group_id
 
@@ -208,7 +208,7 @@ sequenceDiagram
 3. **Critical**: Commit published and confirmed BEFORE Welcome sent
 4. Welcome gift-wrapped and sent privately (NIP-59)
 5. Member decrypts Welcome and joins group
-6. Member deletes consumed KeyPackage
+6. Member rotates KeyPackage by publishing a fresh `kind:30443` under the same `d` tag
 
 **Security Notes:**
 
@@ -640,9 +640,9 @@ sequenceDiagram
 
 ### Protection Matrix by Event Kind
 
-| Event Kind                   | TLS | Nostr Sig    | Ephemeral Key | NIP-44 | ChaCha20-Poly1305 | MLS Encrypt       | MLS Auth      | Inner Unsigned |
-| ---------------------------- | --- | ------------ | ------------- | ------ | ----------------- | ----------------- | ------------- | -------------- |
-| **443** (KeyPackage)         | ✅  | ✅           | ❌            | ❌     | ❌                | ❌                | ✅ Credential | N/A            |
-| **10051** (Relay List)       | ✅  | ✅           | ❌            | ❌     | ❌                | ❌                | ❌            | N/A            |
-| **444** (Welcome) via NIP-59 | ✅  | ✅ Ephemeral | ✅            | ✅     | ❌                | ❌ Content is MLS | ❌            | ✅             |
-| **445** (Group Event)        | ✅  | ✅ Ephemeral | ✅            | ❌     | ✅                | ✅                | ✅            | ✅             |
+| Event Kind | TLS | Nostr Sig | Ephemeral Key | NIP-44 | ChaCha20-Poly1305 | MLS Encrypt | MLS Auth | Inner Unsigned |
+|------------|-----|-----------|---------------|--------|-------------------|-------------|----------|----------------|
+| **30443** (KeyPackage) | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ Credential | N/A |
+| **10051** (Relay List) | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | N/A |
+| **444** (Welcome) via NIP-59 | ✅ | ✅ Ephemeral | ✅ | ✅ | ❌ | ❌ Content is MLS | ❌ | ✅ |
+| **445** (Group Event) | ✅ | ✅ Ephemeral | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |

@@ -163,15 +163,13 @@ Network observers include entities that can capture packets between clients and 
 **Threat**: Attackers monitoring network traffic can observe TLS-encrypted packets and Nostr event metadata.
 
 **Attack Scenarios**:
-
-- Observing event kinds (443, 444, 445, 10051) published to relays
+- Observing event kinds (444, 445, 10051, 30443) published to relays
 - Monitoring event sizes and timing patterns
 - Tracking `nostr_group_id` values in kind: 445 event `h` tags
 - Correlating activity patterns across multiple relays
 
 **Observable Information**:
-
-- **Key Package events (kind: 443)**: Public signing keys, MLS credentials containing Nostr public keys, supported ciphersuites, and capabilities. This data is intentionally public and unencrypted.
+- **Key Package events (kind: 30443)**: Public signing keys, MLS credentials containing Nostr public keys, supported ciphersuites, and capabilities. This data is intentionally public and unencrypted.
 - **Key Package list events (kind: 10051)**: Relay URLs where users publish KeyPackages. This data is intentionally public.
 - **Welcome events (kind: 444)**: Gift-wrapped using [NIP-59](https://github.com/nostr-protocol/nips/blob/master/59.md), appearing as kind: 1059 events. Observers cannot determine the payload is a Welcome message without the recipient's Nostr private key.
 - **Application Message events (kind: 445)**: Double-encrypted content (MLS symmetric encryption + ChaCha20-Poly1305, key derived from MLS exporter secret). Observers see encrypted content and ephemeral public keys but cannot decrypt without group secrets.
@@ -200,12 +198,12 @@ Network observers include entities that can capture packets between clients and 
 
 #### T.1.2 - Key Package Credential Mismatch
 
-- **Description**: Attackers attempt to publish KeyPackages with mismatched credentials (Nostr pubkey in MLS credential doesn't match kind: 443 event pubkey).
+- **Description**: Attackers attempt to publish KeyPackages with mismatched credentials (Nostr pubkey in MLS credential doesn't match kind: 30443 event pubkey).
 - **Prerequisites**: Attacker can publish events to relays.
 - **Impact**: Critical authentication bypass if clients don't validate credential matching. Attacker could impersonate other users in groups.
 - **Affected Components**: [MIP-00](00.md) (KeyPackage Events), MLS Credentials
 - **Countermeasures**:
-  - **CRITICAL**: Clients MUST validate that the Nostr public key in the MLS BasicCredential identity field matches the kind: 443 event's pubkey field (See [MIP-00](00.md) Identity Requirements)
+  - **CRITICAL**: Clients MUST validate that the Nostr public key in the MLS BasicCredential identity field matches the kind: 30443 event's pubkey field (See [MIP-00](00.md) Identity Requirements)
   - Cryptographic signatures prevent forgery on behalf of other users
   - Event ID tamper-proofing ([NIP-01](https://github.com/nostr-protocol/nips/blob/master/01.md)) prevents content modification after publishing
 - **Residual Risk**: None if validation is properly implemented. This is a preventable vulnerability.
@@ -604,7 +602,7 @@ Key packages enable asynchronous group invitations and have specific security co
 - **Countermeasures**:
   - **CRITICAL**: Clients MUST rotate signing keys within one week after using last resort KeyPackages (See [MIP-00](00.md) Signing Key Rotation)
   - Best practice: Rotate signing keys within 24-48 hours of last resort KeyPackage use
-  - Last resort packages SHOULD NOT be deleted immediately (they're meant to be reused), but SHOULD be deleted after fresh packages are published
+  - Last resort packages SHOULD NOT be retired immediately (they are meant to be reused), but SHOULD be rotated by publishing a fresh `kind:30443` under the same `d` tag before the old one is decommissioned
   - Retain private keys for all groups to enable rotation
   - Monitor for unexpected or excessive KeyPackage usage
   - Publish fresh KeyPackages regularly to avoid last resort usage
@@ -623,15 +621,16 @@ Key packages enable asynchronous group invitations and have specific security co
   - Consider automatic rotation for high-security use cases
 - **Residual Risk**: Some exposure window exists even with regular rotation. Weekly rotation balances security and usability.
 
-#### T.7.3 - KeyPackage Deletion Failures
+#### T.7.3 - Stale KeyPackage Exposure
 
-- **Description**: KeyPackages might not be properly deleted from relays, leaving stale invitation vectors. Deletion timing differs for last resort vs. non-last-resort packages.
-- **Impact**: Old KeyPackages could be used if not properly deleted.
+- **Description**: Before the migration to addressable `kind:30443` events, stale KeyPackages left on relays after consumption posed a residual invitation vector. With addressable events, rotation is achieved by publishing a new `kind:30443` event under the same `d` tag. Relays that receive the newer event replace the prior version for that slot, eliminating the need for explicit NIP-09 deletion for the normal rotation path.
+- **Impact**: Reduced compared to prior design. Rotation no longer depends on relay support for event deletion, but stale slot state may still be served by relays that miss replacement publishes, receive them out of order, or later replay older valid events.
 - **Countermeasures**:
-  - Clients SHOULD delete non-last-resort KeyPackages after successful group join
-  - Last resort KeyPackages SHOULD be deleted after fresh packages are published, not immediately after use
-  - Do NOT delete if Welcome processing fails (to allow retry)
-  - Monitor relay deletion confirmations
+  - Clients SHOULD rotate (publish a fresh `kind:30443` under the same `d` tag) after a successful group join
+  - Last resort KeyPackages SHOULD be rotated after a fresh package is confirmed published to the intended relays for that slot, not immediately after use
+  - Do NOT rotate if Welcome processing fails (to allow retry)
+  - Clients MAY use NIP-09 event deletion to completely remove a decommissioned KeyPackage slot, but MUST NOT rely on deletion for rotation
+- **Residual Risk**: Even when a client correctly publishes a replacement `kind:30443` event under the same `d` tag, relays that miss the replacement, receive it out of order, or later replay older valid events can continue serving stale KeyPackage slot state. Clients that fail to rotate after consumption make this worse. These failures affect future invitations, not already-joined groups.
 
 #### T.7.4 - Welcome Event Timing Race Conditions (State Fork Vulnerability)
 
@@ -1264,7 +1263,7 @@ These requirements are CRITICAL for security and MUST be implemented correctly. 
 
 #### 3.0.1 Credential Validation (MIP-00) - CRITICAL (Security Bypass)
 
-**Requirement**: Clients MUST validate that the Nostr public key in the MLS BasicCredential identity field exactly matches the kind: 443 KeyPackage event's pubkey field.
+**Requirement**: Clients MUST validate that the Nostr public key in the MLS BasicCredential identity field exactly matches the kind: 30443 KeyPackage event's pubkey field.
 
 - **Why Critical**: Prevents impersonation attacks where attackers publish KeyPackages with credentials belonging to other users
 - **Related Threat**: T.1.2 - Key Package Credential Mismatch
@@ -1344,7 +1343,7 @@ These requirements are CRITICAL for security and MUST be implemented correctly. 
 **Requirement**: Clients MUST securely delete private init_key material from local storage after successfully processing a Welcome message. Deletion MUST include memory zeroization.
 
 - **Why Critical**: Retained init_keys create forward secrecy vulnerabilities. Device compromise could enable decryption of captured Welcome messages and recovery of historical group secrets.
-- **Exception**: For last resort KeyPackages, retain the init_key only while the KeyPackage remains published on relays.
+- **Exception**: For last resort KeyPackages, retain the init_key until the replacement `kind:30443` for the same `d` tag has been published to the intended relays and either relay acceptance has been confirmed or a conservative grace window has elapsed.
 - **Related Threat**: T.7.6 - init_key Retention After Group Join
 - **Specification**: See [MIP-00](00.md) (Private Key Material Management), [MIP-02](02.md) (Processing Requirements)
 
@@ -1450,7 +1449,7 @@ Common mistakes that developers should avoid when implementing Marmot:
 
 **Consequences**: Forward secrecy vulnerability. If device is later compromised, attacker could decrypt captured Welcome messages and recover historical group secrets.
 
-**Solution**: Securely delete private init_key immediately after successful Welcome processing. Use memory zeroization. For last resort KeyPackages, delete init_key only when rotating to a new last resort package. See [MIP-00](00.md) Private Key Material Management.
+**Solution**: Securely delete private init_key immediately after successful Welcome processing. Use memory zeroization. For last resort KeyPackages, delete init_key only after the replacement `kind:30443` for the same `d` tag has propagated to the intended relays or a conservative grace window has elapsed. See [MIP-00](00.md) Private Key Material Management.
 
 #### 3.1.12 Missing Post-Join Self-Update
 
@@ -1647,7 +1646,7 @@ Comprehensive testing is essential to ensure security requirements are properly 
 
 - Extension deserialization (TLS format parsing)
 - MLS message processing (Commits, Proposals, Welcome objects)
-- Nostr event parsing (kind: 443, 444, 445, 10051)
+- Nostr event parsing (kind: 444, 445, 10051, 30443)
 - Media decryption ([MIP-04](04.md) format handling)
 - Key derivation (exporter secret contexts)
 

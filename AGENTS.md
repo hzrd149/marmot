@@ -58,7 +58,7 @@ marmot/
 
 ### Event Kinds
 
-- `kind: 443`: KeyPackage events (public invitations)
+- `kind: 30443`: KeyPackage events (public invitations, addressable)
 - `kind: 444`: Welcome events (gift-wrapped via NIP-59)
 - `kind: 445`: Group events (messages, proposals, commits)
 - `kind: 10051`: KeyPackage relay list events
@@ -146,7 +146,8 @@ When working on protocol specifications, ensure these are always addressed:
   - NIP-01: Basic protocol flow
   - NIP-44: Encrypted Direct Message (used by NIP-59 for Welcome events; **not** used for kind: 445 group events)
   - NIP-59: Gift Wrap (Welcome event encryption)
-  - NIP-70: Replaceable Events (KeyPackage deletion)
+  - NIP-70: Protected Events (optional `-` tag for KeyPackage author enforcement)
+  - NIP-09: Event deletion (optional, for complete KeyPackage removal only — not for rotation)
 
 ### Implementation References
 
